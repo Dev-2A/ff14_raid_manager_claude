@@ -3,6 +3,10 @@ from datetime import datetime
 from typing import Optional, List, Dict, Any
 from enum import Enum
 
+# User 타입을 직접 import
+from app.schemas.user import User as UserSchema
+
+
 class ItemType(str, Enum):
     """분배 아이템 타입"""
     EQUIPMENT_COFFER = "equipment_coffer"
@@ -14,6 +18,7 @@ class ItemType(str, Enum):
     MOUNT = "mount"
     OTHER = "other"
 
+
 # ItemDistribution 스키마
 class ItemDistributionBase(BaseModel):
     """아이템 분배 기본 스키마"""
@@ -22,9 +27,11 @@ class ItemDistributionBase(BaseModel):
     floor_number: int = Field(..., ge=1, le=4)
     notes: Optional[str] = None
 
+
 class ItemDistributionCreate(ItemDistributionBase):
     """아이템 분배 생성 스키마"""
-    priority_order: List[int] = [] # user_id 리스트
+    priority_order: List[int] = []  # user_id 리스트
+
 
 class ItemDistributionUpdate(BaseModel):
     """아이템 분배 수정 스키마"""
@@ -33,6 +40,7 @@ class ItemDistributionUpdate(BaseModel):
     completed_users: Optional[List[int]] = None
     notes: Optional[str] = None
     is_active: Optional[bool] = None
+
 
 class ItemDistribution(ItemDistributionBase):
     """아이템 분배 응답 스키마"""
@@ -46,6 +54,7 @@ class ItemDistribution(ItemDistributionBase):
     
     model_config = ConfigDict(from_attributes=True)
 
+
 # DistributionHistory 스키마
 class DistributionHistoryBase(BaseModel):
     """분배 이력 기본 스키마"""
@@ -55,10 +64,12 @@ class DistributionHistoryBase(BaseModel):
     week_number: int = Field(..., ge=1)
     notes: Optional[str] = None
 
+
 class DistributionHistoryCreate(DistributionHistoryBase):
     """분배 이력 생성 스키마"""
     user_id: int
     distribution_id: Optional[int] = None
+
 
 class DistributionHistory(DistributionHistoryBase):
     """분배 이력 응답 스키마"""
@@ -73,6 +84,7 @@ class DistributionHistory(DistributionHistoryBase):
     
     model_config = ConfigDict(from_attributes=True)
 
+
 # ResourceRequirement 스키마
 class ResourceRequirementBase(BaseModel):
     """재화 요구량 기본 스키마"""
@@ -80,9 +92,11 @@ class ResourceRequirementBase(BaseModel):
     obtained_resources: Dict[str, int] = Field(default_factory=dict)
     remaining_resources: Dict[str, int] = Field(default_factory=dict)
 
+
 class ResourceRequirementUpdate(BaseModel):
     """재화 요구량 수정 스키마"""
     obtained_resources: Optional[Dict[str, int]] = None
+
 
 class ResourceRequirement(ResourceRequirementBase):
     """재화 요구량 응답 스키마"""
@@ -94,6 +108,7 @@ class ResourceRequirement(ResourceRequirementBase):
     
     model_config = ConfigDict(from_attributes=True)
 
+
 # 재화 계산 결과 스키마
 class ResourceCalculationResult(BaseModel):
     """재화 계산 결과 스키마"""
@@ -102,12 +117,13 @@ class ResourceCalculationResult(BaseModel):
     required_resources: Dict[str, int]
     
     # 상세 내역
-    equipment_changes: List[Dict[str, Any]] = [] # 장비 변경 내역
-    upgrade_materials_needed: Dict[str, int] = {} # 필요한 보강 재료
-    tome_cost_total: int = 0 # 총 석판 비용
+    equipment_changes: List[Dict[str, Any]] = []  # 장비 변경 내역
+    upgrade_materials_needed: Dict[str, int] = {}  # 필요한 보강 재료
+    tome_cost_total: int = 0  # 총 석판 비용
     
     # 우선순위 정보 (우선순위 분배 방식인 경우)
-    priority_rankings: Optional[Dict[str, int]] = None # 각 아이템별 우선순위
+    priority_rankings: Optional[Dict[str, int]] = None  # 각 아이템별 우선순위
+
 
 # Forward reference 해결
 from app.schemas.user import User

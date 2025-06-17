@@ -20,9 +20,10 @@ from app.schemas.raid import (
 
 router = APIRouter()
 
-#SECTION - 레이드 관리
 
-@router.get("/", response_class=List[RaidSchema])
+# ============ 레이드 관리 ============
+
+@router.get("/", response_model=List[RaidSchema])
 def get_raids(
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=100),
@@ -40,7 +41,8 @@ def get_raids(
     raids = query.offset(skip).limit(limit).all()
     return raids
 
-@router.get ("/{raid_id}", response_model=RaidSchema)
+
+@router.get("/{raid_id}", response_model=RaidSchema)
 def get_raid(
     raid_id: int,
     db: Session = Depends(deps.get_db)
@@ -52,9 +54,10 @@ def get_raid(
     if not raid:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Raid not fount"
+            detail="Raid not found"
         )
     return raid
+
 
 @router.post("/", response_model=RaidSchema)
 def create_raid(
@@ -71,6 +74,7 @@ def create_raid(
     db.refresh(raid)
     return raid
 
+
 @router.put("/{raid_id}", response_model=RaidSchema)
 def update_raid(
     raid_id: int,
@@ -85,7 +89,7 @@ def update_raid(
     if not raid:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Raid not fount"
+            detail="Raid not found"
         )
     
     update_data = raid_in.model_dump(exclude_unset=True)
@@ -97,7 +101,8 @@ def update_raid(
     db.refresh(raid)
     return raid
 
-#SECTION - 공대 관리
+
+# ============ 공대 관리 ============
 
 @router.get("/{raid_id}/groups", response_model=List[RaidGroupSchema])
 def get_raid_groups(
@@ -127,6 +132,7 @@ def get_raid_groups(
         ).count()
     
     return groups
+
 
 @router.post("/{raid_id}/groups", response_model=RaidGroupSchema)
 def create_raid_group(
@@ -169,6 +175,7 @@ def create_raid_group(
     group.member_count = 1
     return group
 
+
 @router.get("/groups/{group_id}", response_model=RaidGroupSchema)
 def get_raid_group(
     group_id: int,
@@ -190,6 +197,7 @@ def get_raid_group(
     ).count()
     
     return group
+
 
 @router.put("/groups/{group_id}", response_model=RaidGroupSchema)
 def update_raid_group(
@@ -226,6 +234,7 @@ def update_raid_group(
     
     return group
 
+
 @router.delete("/groups/{group_id}")
 def delete_raid_group(
     group_id: int,
@@ -250,7 +259,8 @@ def delete_raid_group(
     
     return {"message": "Raid group deleted successfully"}
 
-#SECTION - 공대원 관리
+
+# ============ 공대원 관리 ============
 
 @router.get("/groups/{group_id}/members", response_model=List[RaidMemberSchema])
 def get_raid_members(
@@ -264,6 +274,7 @@ def get_raid_members(
         RaidMember.raid_group_id == group_id
     ).all()
     return members
+
 
 @router.post("/groups/{group_id}/members", response_model=RaidMemberSchema)
 def add_raid_member(
@@ -313,6 +324,7 @@ def add_raid_member(
     db.refresh(member)
     return member
 
+
 @router.put("/groups/{group_id}/members/{member_id}", response_model=RaidMemberSchema)
 def update_raid_member(
     group_id: int,
@@ -348,6 +360,7 @@ def update_raid_member(
     db.commit()
     db.refresh(member)
     return member
+
 
 @router.delete("/groups/{group_id}/members/{member_id}")
 def remove_raid_member(
@@ -389,7 +402,8 @@ def remove_raid_member(
     
     return {"message": "Member removed successfully"}
 
-#SECTION - 내 공대 조회
+
+# ============ 내 공대 조회 ============
 
 @router.get("/my-groups", response_model=List[RaidGroupSchema])
 def get_my_raid_groups(
