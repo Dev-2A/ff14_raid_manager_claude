@@ -21,6 +21,14 @@ export interface UserCreate {
   job?: string;
 }
 
+export interface UserUpdate {
+  username?: string;
+  email?: string;
+  character_name?: string;
+  server?: string;
+  job?: string;
+}
+
 export interface UserLogin {
   username: string;
   password: string;
@@ -31,115 +39,161 @@ export interface Token {
   token_type: string;
 }
 
+// 게임 서버 목록
+export const GAME_SERVERS = [
+  '초코보',
+  '카벙클',
+  '모그리',
+  '톤베리',
+  '펜리르'
+] as const;
+
+// 직업 목록
+export const JOBS = {
+  // 탱커
+  TANK: [
+    { value: 'PLD', label: '나이트' },
+    { value: 'WAR', label: '전사' },
+    { value: 'DRK', label: '암흑기사' },
+    { value: 'GNB', label: '건브레이커' }
+  ],
+  // 힐러
+  HEALER: [
+    { value: 'WHM', label: '백마도사' },
+    { value: 'SCH', label: '학자' },
+    { value: 'AST', label: '점성술사' },
+    { value: 'SGE', label: '현자' }
+  ],
+  // 근거리 DPS
+  MELEE_DPS: [
+    { value: 'MNK', label: '몽크' },
+    { value: 'DRG', label: '용기사' },
+    { value: 'NIN', label: '닌자' },
+    { value: 'SAM', label: '사무라이' },
+    { value: 'RPR', label: '리퍼' },
+    { value: 'VPR', label: '바이퍼' }
+  ],
+  // 원거리 물리 DPS
+  RANGED_DPS: [
+    { value: 'BRD', label: '음유시인' },
+    { value: 'MCH', label: '기공사' },
+    { value: 'DNC', label: '무도가' }
+  ],
+  // 원거리 마법 DPS
+  CASTER_DPS: [
+    { value: 'BLM', label: '흑마도사' },
+    { value: 'SMN', label: '소환사' },
+    { value: 'RDM', label: '적마도사' },
+    { value: 'PCT', label: '픽토맨서' }
+  ]
+} as const;
+
 // 레이드 관련 타입
 export interface Raid {
   id: number;
   name: string;
-  tier: string;
   description?: string;
-  total_floors: number;
-  min_item_level?: number;
+  min_item_level: number;
+  max_item_level: number;
+  release_date: string;
   is_active: boolean;
   created_at: string;
+  updated_at: string;
 }
 
 export interface RaidCreate {
   name: string;
-  tier: string;
   description?: string;
-  total_floors?: number;
-  min_item_level?: number;
+  min_item_level: number;
+  max_item_level: number;
+  release_date: string;
 }
 
 // 공대 관련 타입
-export enum DistributionMethod {
-  PRIORITY = "priority",
-  FIRST_COME = "first_come"
-}
-
 export interface RaidGroup {
   id: number;
-  name: string;
   raid_id: number;
-  leader_id: number;
-  distribution_method: DistributionMethod;
-  target_item_level?: number;
+  name: string;
   description?: string;
-  is_active: boolean;
+  leader_id: number;
+  max_members: number;
   is_recruiting: boolean;
+  is_active: boolean;
   created_at: string;
   updated_at: string;
   raid?: Raid;
   leader?: User;
+  members?: RaidMember[];
   member_count?: number;
 }
 
 export interface RaidGroupCreate {
   name: string;
-  distribution_method?: DistributionMethod;
-  target_item_level?: number;
   description?: string;
+  max_members?: number;
+  is_recruiting?: boolean;
 }
 
 export interface RaidMember {
   id: number;
   raid_group_id: number;
   user_id: number;
-  role?: string;
-  job?: string;
-  can_manage_schedule: boolean;
-  can_manage_distribution: boolean;
+  role: MemberRole;
+  is_active: boolean;
   joined_at: string;
   user?: User;
+  raid_group?: RaidGroup;
+}
+
+export enum MemberRole {
+  LEADER = 'leader',
+  OFFICER = 'officer',
+  MEMBER = 'member',
+  PENDING = 'pending'
 }
 
 // 장비 관련 타입
-export enum EquipmentSlot {
-  WEAPON = "weapon",
-  HEAD = "head",
-  BODY = "body",
-  HANDS = "hands",
-  LEGS = "legs",
-  FEET = "feet",
-  EARRINGS = "earrings",
-  NECKLACE = "necklace",
-  BRACELET = "bracelet",
-  RING = "ring"
-}
-
-export enum EquipmentType {
-  RAID_HERO = "raid_hero",
-  RAID_NORMAL = "raid_normal",
-  TOME = "tome",
-  TOME_AUGMENTED = "tome_augmented",
-  CRAFTED = "crafted",
-  OTHER = "other"
-}
-
 export interface Equipment {
   id: number;
+  raid_id: number;
   name: string;
   slot: EquipmentSlot;
   equipment_type: EquipmentType;
   item_level: number;
-  job_category?: string;
-  raid_id?: number;
-  source?: string;
-  tome_cost: number;
+  main_stat?: string;
+  sub_stats?: string[];
+  special_effect?: string;
   is_active: boolean;
   created_at: string;
   updated_at: string;
+  raid?: Raid;
+}
+
+export enum EquipmentSlot {
+  WEAPON = 'weapon',
+  HEAD = 'head',
+  BODY = 'body',
+  HANDS = 'hands',
+  LEGS = 'legs',
+  FEET = 'feet',
+  EARRINGS = 'earrings',
+  NECKLACE = 'necklace',
+  BRACELETS = 'bracelets',
+  RING = 'ring'
+}
+
+export enum EquipmentType {
+  WEAPON = 'weapon',
+  ARMOR = 'armor',
+  ACCESSORY = 'accessory'
 }
 
 export interface EquipmentSet {
   id: number;
-  name: string;
   user_id: number;
-  raid_group_id: number;
-  is_starting_set: boolean;
-  is_bis_set: boolean;
-  is_current_set: boolean;
-  total_item_level: number;
+  raid_group_id?: number;
+  name: string;
+  description?: string;
   created_at: string;
   updated_at: string;
   items?: EquipmentSetItem[];
@@ -150,71 +204,58 @@ export interface EquipmentSetItem {
   equipment_set_id: number;
   equipment_id: number;
   slot: EquipmentSlot;
-  is_obtained: boolean;
-  obtained_at?: string;
   created_at: string;
   equipment?: Equipment;
 }
 
-// 아이템 분배 관련 타입
-export enum ItemType {
-  EQUIPMENT_COFFER = "equipment_coffer",
-  WEAPON_COFFER = "weapon_coffer",
-  UPGRADE_ITEM = "upgrade_item",
-  TOME_MATERIAL = "tome_material",
-  TOKEN = "token",
-  WEAPON_TOKEN = "weapon_token",
-  MOUNT = "mount",
-  OTHER = "other"
-}
-
+// 분배 관련 타입
 export interface ItemDistribution {
   id: number;
   raid_group_id: number;
-  item_name: string;
-  item_type: ItemType;
+  raid_id: number;
   floor_number: number;
+  item_type: ItemType;
   priority_order: number[];
-  completed_users: number[];
   notes?: string;
   is_active: boolean;
   created_at: string;
   updated_at: string;
 }
 
+export enum ItemType {
+  EQUIPMENT = 'equipment',
+  MOUNT = 'mount',
+  MATERIAL = 'material',
+  TOKEN = 'token',
+  OTHER = 'other'
+}
+
 export interface DistributionHistory {
   id: number;
   raid_group_id: number;
   user_id: number;
-  distribution_id?: number;
   item_name: string;
   item_type: ItemType;
-  floor_number?: number;
-  week_number: number;
+  floor_number: number;
   distributed_at: string;
   notes?: string;
+  created_at: string;
   user?: User;
 }
 
 export interface ResourceRequirement {
   id: number;
-  user_id: number;
   raid_group_id: number;
-  required_resources: Record<string, number>;
-  obtained_resources: Record<string, number>;
-  remaining_resources: Record<string, number>;
-  completion_percentage: number;
-  last_calculated_at: string;
+  user_id: number;
+  resource_type: string;
+  amount: number;
+  notes?: string;
+  created_at: string;
+  updated_at: string;
+  user?: User;
 }
 
 // 일정 관련 타입
-export enum AttendanceStatus {
-  PENDING = "pending",
-  CONFIRMED = "confirmed",
-  DECLINED = "declined",
-  TENTATIVE = "tentative"
-}
-
 export interface RaidSchedule {
   id: number;
   raid_group_id: number;
@@ -230,15 +271,20 @@ export interface RaidSchedule {
   is_cancelled: boolean;
   minimum_members: number;
   notes?: string;
-  completion_notes?: string;
   created_at: string;
   updated_at: string;
-  completed_at?: string;
-  cancelled_at?: string;
   created_by?: User;
   attendances?: RaidAttendance[];
   confirmed_count?: number;
   declined_count?: number;
+}
+
+export enum RepeatType {
+  NONE = 'none',
+  DAILY = 'daily',
+  WEEKLY = 'weekly',
+  BIWEEKLY = 'biweekly',
+  MONTHLY = 'monthly'
 }
 
 export interface RaidAttendance {
@@ -246,142 +292,41 @@ export interface RaidAttendance {
   schedule_id: number;
   user_id: number;
   status: AttendanceStatus;
-  responded_at?: string;
-  reason?: string;
-  actually_attended?: boolean;
+  notes?: string;
+  responded_at: string;
   created_at: string;
   updated_at: string;
   user?: User;
+  schedule?: RaidSchedule;
 }
 
-// 일정 대시보드 타입
-export interface ScheduleDashboard {
-  upcoming_schedules: RaidSchedule[];
-  past_schedules: RaidSchedule[];
-  my_attendance_status: Record<number, AttendanceStatus>;
+export enum AttendanceStatus {
+  PENDING = 'pending',
+  CONFIRMED = 'confirmed',
+  DECLINED = 'declined',
+  TENTATIVE = 'tentative'
 }
 
-// API 응답 타입
-export interface ApiResponse<T> {
-  data: T;
-  message?: string;
-}
-
-export interface ApiError {
-  detail: string;
-  status_code?: number;
-}
-
+// 페이지네이션
 export interface PaginatedResponse<T> {
   items: T[];
   total: number;
-  page: number;
-  per_page: number;
-  pages: number;
+  skip: number;
+  limit: number;
 }
 
-// 폼 데이터 타입
-export interface LoginFormData {
-  username: string;
-  password: string;
+// API 에러
+export interface ApiError {
+  detail: string;
+  status_code?: number;
+  validation_errors?: any;
 }
-
-export interface RegisterFormData {
-  username: string;
-  email: string;
-  password: string;
-  character_name: string;
-  server: string;
-  job?: string;
-}
-
-// 유틸리티 타입
-export type JobRole = "tank" | "healer" | "dps";
-
-export interface Job {
-  id: string;
-  name: string;
-  role: JobRole;
-  icon?: string;
-}
-
-// 게임 서버 목록
-export const GAME_SERVERS = [
-  "카벙클",
-  "초코보", 
-  "모그리",
-  "톤베리",
-  "펜리르"
-] as const;
-
-export type GameServer = typeof GAME_SERVERS[number];
-
-// 직업 목록
-export const JOBS: Job[] = [
-  // 탱커
-  { id: "paladin", name: "나이트", role: "tank" },
-  { id: "warrior", name: "전사", role: "tank" },
-  { id: "darkknight", name: "암흑기사", role: "tank" },
-  { id: "gunbreaker", name: "건브레이커", role: "tank" },
-  
-  // 힐러
-  { id: "whitemage", name: "백마도사", role: "healer" },
-  { id: "scholar", name: "학자", role: "healer" },
-  { id: "astrologian", name: "점성술사", role: "healer" },
-  { id: "sage", name: "현자", role: "healer" },
-  
-  // 근거리 DPS
-  { id: "monk", name: "몽크", role: "dps" },
-  { id: "dragoon", name: "용기사", role: "dps" },
-  { id: "ninja", name: "닌자", role: "dps" },
-  { id: "samurai", name: "사무라이", role: "dps" },
-  { id: "reaper", name: "리퍼", role: "dps" },
-  { id: "viper", name: "바이퍼", role: "dps" },
-  
-  // 원거리 물리 DPS
-  { id: "bard", name: "음유시인", role: "dps" },
-  { id: "machinist", name: "기공사", role: "dps" },
-  { id: "dancer", name: "무도가", role: "dps" },
-  
-  // 원거리 마법 DPS
-  { id: "blackmage", name: "흑마도사", role: "dps" },
-  { id: "summoner", name: "소환사", role: "dps" },
-  { id: "redmage", name: "적마도사", role: "dps" },
-  { id: "pictomancer", name: "픽토맨서", role: "dps" }
-];
-
-// 장비 슬롯 한글명
-export const EQUIPMENT_SLOT_NAMES: Record<EquipmentSlot, string> = {
-  [EquipmentSlot.WEAPON]: "무기",
-  [EquipmentSlot.HEAD]: "머리",
-  [EquipmentSlot.BODY]: "상의",
-  [EquipmentSlot.HANDS]: "장갑",
-  [EquipmentSlot.LEGS]: "하의",
-  [EquipmentSlot.FEET]: "신발",
-  [EquipmentSlot.EARRINGS]: "귀걸이",
-  [EquipmentSlot.NECKLACE]: "목걸이",
-  [EquipmentSlot.BRACELET]: "팔찌",
-  [EquipmentSlot.RING]: "반지"
-};
-
-// 장비 타입 한글명
-export const EQUIPMENT_TYPE_NAMES: Record<EquipmentType, string> = {
-  [EquipmentType.RAID_HERO]: "영웅 레이드",
-  [EquipmentType.RAID_NORMAL]: "일반 레이드",
-  [EquipmentType.TOME]: "석판",
-  [EquipmentType.TOME_AUGMENTED]: "강화 석판",
-  [EquipmentType.CRAFTED]: "제작",
-  [EquipmentType.OTHER]: "기타"
-};
 
 // 아이템 타입 한글명
 export const ITEM_TYPE_NAMES: Record<ItemType, string> = {
-  [ItemType.EQUIPMENT_COFFER]: "장비 궤짝",
-  [ItemType.WEAPON_COFFER]: "무기 궤짝",
-  [ItemType.UPGRADE_ITEM]: "강화 재료",
-  [ItemType.TOME_MATERIAL]: "석판 재료",
-  [ItemType.TOKEN]: "토큰",
-  [ItemType.WEAPON_TOKEN]: "무기 토큰",
-  [ItemType.MOUNT]: "탈것",
-  [ItemType.OTHER]: "기타"
+  [ItemType.EQUIPMENT]: '장비',
+  [ItemType.MOUNT]: '탈것',
+  [ItemType.MATERIAL]: '재료',
+  [ItemType.TOKEN]: '토큰',
+  [ItemType.OTHER]: '기타'
 };

@@ -1,6 +1,6 @@
 import api, { fileApi, createQueryParams } from './config';
 import {
-  User, UserCreate, UserLogin, Token,
+  User, UserCreate, UserLogin, UserUpdate, Token,
   Raid, RaidCreate,
   RaidGroup, RaidGroupCreate,
   RaidMember,
@@ -35,6 +35,21 @@ export const authApi = {
   // 내 정보 조회
   me: async (): Promise<User> => {
     const response = await api.get('/auth/me');
+    return response.data;
+  },
+
+  // 프로필 업데이트
+  updateProfile: async (userData: UserUpdate): Promise<User> => {
+    const response = await api.put('/auth/me', userData);
+    return response.data;
+  },
+
+  // 비밀번호 변경
+  changePassword: async (passwords: {
+    current_password: string;
+    new_password: string;
+  }): Promise<{ message: string }> => {
+    const response = await api.post('/auth/change-password', passwords);
     return response.data;
   },
 
@@ -91,7 +106,7 @@ export const raidGroupApi = {
 
   // 공대 상세
   get: async (groupId: number): Promise<RaidGroup> => {
-    const response = await api.get(`/raids/groups/${groupId}`);
+    const response = await api.get(`/raid-groups/${groupId}`);
     return response.data;
   },
 
@@ -101,53 +116,59 @@ export const raidGroupApi = {
     return response.data;
   },
 
-  // 공대 수정
+  // 공대 수정 (공대장)
   update: async (groupId: number, data: Partial<RaidGroupCreate>): Promise<RaidGroup> => {
-    const response = await api.put(`/raids/groups/${groupId}`, data);
+    const response = await api.put(`/raid-groups/${groupId}`, data);
     return response.data;
   },
 
-  // 공대 삭제
+  // 공대 삭제 (공대장)
   delete: async (groupId: number): Promise<void> => {
-    await api.delete(`/raids/groups/${groupId}`);
+    await api.delete(`/raid-groups/${groupId}`);
   },
 
   // 내가 속한 공대 목록
   myGroups: async (): Promise<RaidGroup[]> => {
-    const response = await api.get('/raids/my-groups');
+    const response = await api.get('/raid-groups/my-groups');
     return response.data;
   },
 
-  // 공대원 목록
+  // 공대 멤버 목록
+  getMembers: async (groupId: number): Promise<RaidMember[]> => {
+    const response = await api.get(`/raid-groups/${groupId}/members`);
+    return response.data;
+  },
+
+  // members 별칭 추가 (하위 호환성)
   members: async (groupId: number): Promise<RaidMember[]> => {
-    const response = await api.get(`/raids/groups/${groupId}/members`);
+    return raidGroupApi.getMembers(groupId);
+  },
+
+  // 공대 가입 신청
+  join: async (groupId: number): Promise<RaidMember> => {
+    const response = await api.post(`/raid-groups/${groupId}/join`);
     return response.data;
   },
 
-  // 공대원 추가
-  addMember: async (groupId: number, data: {
-    user_id: number;
-    role?: string;
-    job?: string;
-  }): Promise<RaidMember> => {
-    const response = await api.post(`/raids/groups/${groupId}/members`, data);
+  // 공대 탈퇴
+  leave: async (groupId: number): Promise<void> => {
+    await api.post(`/raid-groups/${groupId}/leave`);
+  },
+
+  // 멤버 승인 (공대장)
+  approveMember: async (groupId: number, memberId: number): Promise<RaidMember> => {
+    const response = await api.post(`/raid-groups/${groupId}/members/${memberId}/approve`);
     return response.data;
   },
 
-  // 공대원 수정
-  updateMember: async (groupId: number, memberId: number, data: {
-    role?: string;
-    job?: string;
-    can_manage_schedule?: boolean;
-    can_manage_distribution?: boolean;
-  }): Promise<RaidMember> => {
-    const response = await api.put(`/raids/groups/${groupId}/members/${memberId}`, data);
-    return response.data;
+  // 멤버 거절 (공대장)
+  rejectMember: async (groupId: number, memberId: number): Promise<void> => {
+    await api.post(`/raid-groups/${groupId}/members/${memberId}/reject`);
   },
 
-  // 공대원 제거
-  removeMember: async (groupId: number, memberId: number): Promise<void> => {
-    await api.delete(`/raids/groups/${groupId}/members/${memberId}`);
+  // 멤버 추방 (공대장)
+  kickMember: async (groupId: number, memberId: number): Promise<void> => {
+    await api.delete(`/raid-groups/${groupId}/members/${memberId}`);
   },
 };
 
@@ -161,9 +182,8 @@ export const equipmentApi = {
     equipment_type?: string;
     item_level?: number;
     raid_id?: number;
-    is_active?: boolean;
   }): Promise<Equipment[]> => {
-    const response = await api.get(`/equipment`, { params });
+    const response = await api.get('/equipment', { params });
     return response.data;
   },
 
@@ -173,81 +193,34 @@ export const equipmentApi = {
     return response.data;
   },
 
-  // 장비 생성 (관리자)
-  create: async (data: Partial<Equipment>): Promise<Equipment> => {
-    const response = await api.post('/equipment', data);
-    return response.data;
-  },
-
-  // 장비 수정 (관리자)
-  update: async (id: number, data: Partial<Equipment>): Promise<Equipment> => {
-    const response = await api.put(`/equipment/${id}`, data);
-    return response.data;
-  },
-  
-  // 장비 삭제 (관리자)
-  delete: async (id: number): Promise<void> => {
-    await api.delete(`/equipment/${id}`);
-  },
-};
-
-// 장비 세트 API
-export const equipmentSetApi = {
   // 내 장비 세트 목록
-  mySets: async (raid_group_id?: number): Promise<EquipmentSet[]> => {
-    const params = raid_group_id ? { raid_group_id } : undefined;
+  getMySets: async (raidGroupId?: number): Promise<EquipmentSet[]> => {
+    const params = raidGroupId ? { raid_group_id: raidGroupId } : {};
     const response = await api.get('/equipment/sets/my-sets', { params });
     return response.data;
   },
-  
-  // 장비 세트 상세
-  get: async (setId: number): Promise<EquipmentSet> => {
-    const response = await api.get(`/equipment/sets/${setId}`);
-    return response.data;
-  },
-  
+
   // 장비 세트 생성
-  create: async (data: {
+  createSet: async (data: {
     name: string;
-    raid_group_id: number;
-    is_starting_set?: boolean;
-    is_bis_set?: boolean;
-    is_current_set?: boolean;
+    raid_group_id?: number;
+    description?: string;
   }): Promise<EquipmentSet> => {
     const response = await api.post('/equipment/sets', data);
     return response.data;
   },
-  
-  // 장비 세트 수정
-  update: async (setId: number, data: Partial<EquipmentSet>): Promise<EquipmentSet> => {
-    const response = await api.put(`/equipment/sets/${setId}`, data);
-    return response.data;
-  },
-  
-  // 장비 세트 삭제
-  delete: async (setId: number): Promise<void> => {
-    await api.delete(`/equipment/sets/${setId}`);
-  },
-  
-  // 세트에 아이템 추가
-  addItem: async (setId: number, data: {
+
+  // 장비 세트 아이템 추가
+  addSetItem: async (setId: number, data: {
     equipment_id: number;
     slot: string;
   }): Promise<EquipmentSetItem> => {
     const response = await api.post(`/equipment/sets/${setId}/items`, data);
     return response.data;
   },
-  
-  // 세트 아이템 수정
-  updateItem: async (setId: number, itemId: number, data: {
-    is_obtained?: boolean;
-  }): Promise<EquipmentSetItem> => {
-    const response = await api.put(`/equipment/sets/${setId}/items/${itemId}`, data);
-    return response.data;
-  },
-  
-  // 세트에서 아이템 제거
-  removeItem: async (setId: number, itemId: number): Promise<void> => {
+
+  // 장비 세트 아이템 제거
+  removeSetItem: async (setId: number, itemId: number): Promise<void> => {
     await api.delete(`/equipment/sets/${setId}/items/${itemId}`);
   },
 };
@@ -255,6 +228,48 @@ export const equipmentSetApi = {
 // 분배 API
 export const distributionApi = {
   // 분배 규칙 목록
+  getRules: async (groupId: number, params?: {
+    floor_number?: number;
+    item_type?: string;
+  }): Promise<ItemDistribution[]> => {
+    const response = await api.get(`/distribution/groups/${groupId}/rules`, { params });
+    return response.data;
+  },
+
+  // 분배 규칙 생성
+  createRule: async (groupId: number, data: {
+    raid_id: number;
+    floor_number: number;
+    item_type: string;
+    priority_order: number[];
+  }): Promise<ItemDistribution> => {
+    const response = await api.post(`/distribution/groups/${groupId}/rules`, data);
+    return response.data;
+  },
+
+  // 분배 기록
+  getHistory: async (groupId: number, params?: {
+    skip?: number;
+    limit?: number;
+    user_id?: number;
+    floor_number?: number;
+  }): Promise<PaginatedResponse<DistributionHistory>> => {
+    const queryString = createQueryParams(params);
+    const response = await api.get(`/distribution/groups/${groupId}/history${queryString}`);
+    return response.data;
+  },
+
+  // history 별칭 추가 (하위 호환성)
+  history: async (groupId: number, params?: {
+    week_number?: number;
+    user_id?: number;
+    item_type?: string;
+  }): Promise<DistributionHistory[]> => {
+    const response = await api.get(`/distribution/groups/${groupId}/history`, { params });
+    return response.data;
+  },
+
+  // rules 별칭 추가 (하위 호환성)
   rules: async (groupId: number, params?: {
     floor_number?: number;
     item_type?: string;
@@ -263,90 +278,20 @@ export const distributionApi = {
     const response = await api.get(`/distribution/groups/${groupId}/rules`, { params });
     return response.data;
   },
-  
-  // 분배 규칙 생성
-  createRule: async (groupId: number, data: {
-    item_name: string;
-    item_type: string;
-    floor_number: number;
-    priority_order?: number[];
-    notes?: string;
-  }): Promise<ItemDistribution> => {
-    const response = await api.post(`/distribution/groups/${groupId}/rules`, data);
+
+  // 자원 요구사항
+  getRequirements: async (groupId: number, userId?: number): Promise<ResourceRequirement[]> => {
+    const params = userId ? { user_id: userId } : {};
+    const response = await api.get(`/distribution/groups/${groupId}/requirements`, { params });
     return response.data;
   },
-  
-  // 분배 규칙 수정
-  updateRule: async (groupId: number, ruleId: number, data: Partial<ItemDistribution>): Promise<ItemDistribution> => {
-    const response = await api.put(`/distribution/groups/${groupId}/rules/${ruleId}`, data);
-    return response.data;
-  },
-  
-  // 분배 규칙 삭제
-  deleteRule: async (groupId: number, ruleId: number): Promise<void> => {
-    await api.delete(`/distribution/groups/${groupId}/rules/${ruleId}`);
-  },
-  
-  // 분배 이력 목록
-  history: async (groupId: number, params?: {
-    week_number?: number;
-    user_id?: number;
-    item_type?: string;
-    skip?: number;
-    limit?: number;
-  }): Promise<DistributionHistory[]> => {
-    const response = await api.get(`/distribution/groups/${groupId}/history`, { params });
-    return response.data;
-  },
-  
-  // 분배 기록
-  recordDistribution: async (groupId: number, data: {
-    user_id: number;
-    distribution_id?: number;
-    item_name: string;
-    item_type: string;
-    floor_number?: number;
-    week_number: number;
-    notes?: string;
-  }): Promise<DistributionHistory> => {
-    const response = await api.post(`/distribution/groups/${groupId}/history`, data);
-    return response.data;
-  },
-  
-  // 분배 이력 삭제
-  deleteHistory: async (groupId: number, historyId: number): Promise<void> => {
-    await api.delete(`/distribution/groups/${groupId}/history/${historyId}`);
-  },
-  
-  // 재화 요구량 목록
-  resources: async (groupId: number): Promise<ResourceRequirement[]> => {
-    const response = await api.get(`/distribution/groups/${groupId}/resources`);
-    return response.data;
-  },
-  
-  // 내 재화 요구량
-  myResource: async (groupId: number): Promise<ResourceRequirement> => {
-    const response = await api.get(`/distribution/groups/${groupId}/resources/me`);
-    return response.data;
-  },
-  
-  // 재화 계산
-  calculateResource: async (groupId: number): Promise<any> => {
-    const response = await api.post(`/distribution/groups/${groupId}/resources/calculate`);
-    return response.data;
-  },
-  
-  // 획득 재화 업데이트
-  updateResource: async (groupId: number, data: {
-    obtained_resources: Record<string, number>;
-  }): Promise<ResourceRequirement> => {
-    const response = await api.put(`/distribution/groups/${groupId}/resources/update`, data);
-    return response.data;
-  },
-  
-  // 우선순위 자동 계산
-  calculatePriority: async (groupId: number): Promise<any> => {
-    const response = await api.post(`/distribution/groups/${groupId}/calculate-priority`);
+
+  // 자원 계산
+  calculateResources: async (groupId: number): Promise<{
+    total_required: { [key: string]: number };
+    user_requirements: { [userId: string]: { [key: string]: number } };
+  }> => {
+    const response = await api.get(`/distribution/groups/${groupId}/calculate`);
     return response.data;
   },
 };
@@ -366,13 +311,7 @@ export const scheduleApi = {
     const response = await api.get(`/schedules/groups/${groupId}/schedules`, { params });
     return response.data;
   },
-  
-  // 일정 상세
-  get: async (groupId: number, scheduleId: number): Promise<RaidSchedule> => {
-    const response = await api.get(`/schedules/groups/${groupId}/schedules/${scheduleId}`);
-    return response.data;
-  },
-  
+
   // 일정 생성
   create: async (groupId: number, data: {
     title: string;
@@ -387,34 +326,24 @@ export const scheduleApi = {
     const response = await api.post(`/schedules/groups/${groupId}/schedules`, data);
     return response.data;
   },
-  
+
   // 일정 수정
   update: async (groupId: number, scheduleId: number, data: Partial<RaidSchedule>): Promise<RaidSchedule> => {
     const response = await api.put(`/schedules/groups/${groupId}/schedules/${scheduleId}`, data);
     return response.data;
   },
-  
+
   // 일정 삭제
   delete: async (groupId: number, scheduleId: number): Promise<void> => {
     await api.delete(`/schedules/groups/${groupId}/schedules/${scheduleId}`);
   },
-  
-  // 대시보드
-  dashboard: async (params?: {
-    raid_group_id?: number;
-    days_ahead?: number;
-    days_behind?: number;
-  }): Promise<any> => {
-    const response = await api.get('/schedules/dashboard', { params });
+
+  // 출석 상태 업데이트
+  updateAttendance: async (scheduleId: number, status: string): Promise<RaidAttendance> => {
+    const response = await api.post(`/schedules/${scheduleId}/attendance`, { status });
     return response.data;
   },
-  
-  // 참석 현황
-  attendance: async (groupId: number, scheduleId: number): Promise<RaidAttendance[]> => {
-    const response = await api.get(`/schedules/groups/${groupId}/schedules/${scheduleId}/attendance`);
-    return response.data;
-  },
-  
+
   // 내 참석 여부 업데이트
   updateMyAttendance: async (groupId: number, scheduleId: number, data: {
     status: string;
@@ -423,23 +352,10 @@ export const scheduleApi = {
     const response = await api.put(`/schedules/groups/${groupId}/schedules/${scheduleId}/attendance/me`, data);
     return response.data;
   },
-  
-  // 멤버 참석 여부 업데이트
-  updateMemberAttendance: async (groupId: number, scheduleId: number, userId: number, data: {
-    status?: string;
-    reason?: string;
-    actually_attended?: boolean;
-  }): Promise<RaidAttendance> => {
-    const response = await api.put(`/schedules/groups/${groupId}/schedules/${scheduleId}/attendance/${userId}`, data);
-    return response.data;
-  },
-  
-  // 출석 통계
-  attendanceStats: async (groupId: number, params?: {
-    from_date?: string;
-    to_date?: string;
-  }): Promise<any> => {
-    const response = await api.get(`/schedules/groups/${groupId}/attendance-stats`, { params });
+
+  // 출석 현황 조회
+  getAttendance: async (scheduleId: number): Promise<RaidAttendance[]> => {
+    const response = await api.get(`/schedules/${scheduleId}/attendance`);
     return response.data;
   },
 };

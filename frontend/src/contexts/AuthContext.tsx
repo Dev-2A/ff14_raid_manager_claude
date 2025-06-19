@@ -88,10 +88,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
       let errorMessage = '로그인에 실패했습니다.';
 
-      if (error.status_code === 401) {
+      if (error.response?.status === 401) {
         errorMessage = '아이디 또는 비밀번호가 올바르지 않습니다.';
-      } else if (error.detail) {
-        errorMessage = error.detail;
+      } else if (error.response?.data?.detail) {
+        errorMessage = error.response.data.detail;
       }
 
       setError(errorMessage);
@@ -122,20 +122,20 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
       let errorMessage = '회원가입에 실패했습니다.';
 
-      if (error.status_code === 400) {
-        if (error.detail?.includes('already registered')) {
+      if (error.response?.status === 400) {
+        if (error.response.data.detail?.includes('already registered')) {
           errorMessage = '이미 사용 중인 아이디 또는 이메일입니다.';
         } else {
-          errorMessage = error.detail || errorMessage;
+          errorMessage = error.response.data.detail || errorMessage;
         }
-      }else if (error.validation_errors) {
+      } else if (error.response?.data?.validation_errors) {
         // 유효성 검사 오류 처리
-        const errors = error.validation_errors;
+        const errors = error.response.data.validation_errors;
         if (Array.isArray(errors)) {
           errorMessage = errors.map((e: any) => e.msg).join(', ');
         }
-      } else if (error.detail) {
-        errorMessage = error.detail;
+      } else if (error.response?.data?.detail) {
+        errorMessage = error.response.data.detail;
       }
 
       setError(errorMessage);
@@ -177,7 +177,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           setUser(null);
           window.location.href = '/login';
         }
-      }else if (e.key === 'user' && e.newValue) {
+      } else if (e.key === 'user' && e.newValue) {
         // 다른 탭에서 사용자 정보가 업데이트된 경우
         try {
           const updatedUser = JSON.parse(e.newValue);

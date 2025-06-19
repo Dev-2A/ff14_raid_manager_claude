@@ -13,6 +13,12 @@ const api: AxiosInstance = axios.create({
   timeout: 30000, // 30초 타임아웃
 });
 
+// 파일 업로드용 axios 인스턴스
+const fileApi: AxiosInstance = axios.create({
+  baseURL: API_BASE_URL,
+  timeout: 300000, // 5분 타임아웃 (파일 업로드용)
+});
+
 // 토큰 관리 유틸리티
 const tokenUtils = {
   getAccessToken: (): string | null => {
@@ -51,6 +57,22 @@ api.interceptors.request.use(
         return Promise.reject(new Error('Token expired'));
       }
 
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
+  }
+);
+
+// 파일 API 요청 인터셉터
+fileApi.interceptors.request.use(
+  (config) => {
+    const token = tokenUtils.getAccessToken();
+
+    if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
 
@@ -113,103 +135,45 @@ api.interceptors.response.use(
       const validationErrors = error.response.data as any;
       return Promise.reject({
         detail: '입력 데이터를 확인해주세요.',
-        validation_errors: validationErrors.detail,
+        validation_errors: validationErrors.detail || validationErrors,
         status_code: 422
       });
     }
 
-    // 기타 에러
+    // 기타 에러 처리
     return Promise.reject({
-      detail: error.response.data?.detail || '오류가 발생했습니다.',
+      detail: error.response.data?.detail || '요청 처리 중 오류가 발생했습니다.',
       status_code: error.response.status
     });
   }
 );
 
-// 파일 업로드용 axios 인스턴스
-const fileApi: AxiosInstance = axios.create({
-  baseURL: API_BASE_URL,
-  timeout: 300000, // 5분 타임아웃 (대용량 파일 고려)
-});
-
-// 파일 업로드 요청 인터셉터
-fileApi.interceptors.request.use(
-  (config) => {
-    const token = tokenUtils.getAccessToken();
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-    return config;
-  },
+// 파일 API 응답 인터셉터
+fileApi.interceptors.response.use(
+  (response) => response,
   (error) => {
+    // 401 에러 처리
+    if (error.response?.status === 401) {
+      tokenUtils.removeAccessToken();
+      localStorage.removeItem('user');
+      window.location.href = '/login';
+    }
     return Promise.reject(error);
   }
 );
 
-// FormData 변환 유틸리티
-export const createFormData = (data: Record<string, any>): FormData => {
-  const formData = new FormData();
-
-  Object.keys(data).forEach(key => {
-    const value = data[key];
-
-    if (value instanceof File) {
-      formData.append(key, value);
-    } else if (Array.isArray(value)) {
-      value.forEach((item, index) => {
-        if (item instanceof File) {
-          formData.append(`${key}[${index}]`, item);
-        } else {
-          formData.append(`${key}[${index}]`, JSON.stringify(item));
-        }
-      });
-    } else if (value !== null && value !== undefined) {
-      formData.append(key, typeof value === 'object' ? JSON.stringify(value) : String(value));
-    }
-  });
-
-  return formData;
-};
-
-// 쿼리 파라미터 생성 유틸리티
+// Query 파라미터 생성 유틸리티
 export const createQueryParams = (params: Record<string, any>): string => {
-  const searchParams = new URLSearchParams();
-
-  Object.keys(params).forEach(key => {
-    const value = params[key];
-
-    if (value !== null && value !== undefined && value !== '') {
-      if (Array.isArray(value)) {
-        value.forEach(item => searchParams.append(key, String(item)));
-      } else {
-        searchParams.append(key, String(value));
-      }
+  const queryParams = new URLSearchParams();
+  
+  Object.entries(params).forEach(([key, value]) => {
+    if (value !== undefined && value !== null && value !== '') {
+      queryParams.append(key, String(value));
     }
   });
 
-  return searchParams.toString();
-};
-
-// 에러 메시지 추출 유틸리티
-export const extractErrorMessage = (error: any): string => {
-  if (typeof error === 'string') {
-    return error;
-  }
-
-  if (error?.detail) {
-    if (typeof error.detail === 'string') {
-      return error.detail;
-    }
-    if (Array.isArray(error.detail)) {
-      return error.detail.map((e: any) => e.msg || e.message || String(e)).join(', ');
-    }
-  }
-
-  if (error?.message) {
-    return error.message;
-  }
-
-  return '알 수 없는 오류가 발생했습니다.';
+  const queryString = queryParams.toString();
+  return queryString ? `?${queryString}` : '';
 };
 
 // 날짜 포맷 유틸리티
