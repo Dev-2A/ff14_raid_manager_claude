@@ -14,6 +14,14 @@ class AttendanceStatus(str, Enum):
     DECLINED = "declined"
     TENTATIVE = "tentative"
 
+class RecurrenceType(str, Enum):
+    """반복 유형"""
+    NONE = "none"
+    DAILY = "daily"
+    WEEKLY = "weekly"
+    BIWEEKLY = "biweekly"
+    MONTHLY = "monthly"
+
 
 # RaidSchedule 스키마
 class RaidScheduleBase(BaseModel):
@@ -30,7 +38,11 @@ class RaidScheduleBase(BaseModel):
 
 class RaidScheduleCreate(RaidScheduleBase):
     """레이드 일정 생성 스키마"""
-    pass
+    # 반복 설정 추가
+    recurrence_type: RecurrenceType = RecurrenceType.NONE
+    recurrence_end_date: Optional[date] = None
+    recurrence_count: Optional[int] = Field(None, ge=1, le=52)  # 최대 52회
+    recurrence_days: Optional[str] = Field(None, max_length=20)  # "1,3,5" 형식
 
 
 class RaidScheduleUpdate(BaseModel):
@@ -47,6 +59,7 @@ class RaidScheduleUpdate(BaseModel):
     is_completed: Optional[bool] = None
     is_cancelled: Optional[bool] = None
     completion_notes: Optional[str] = None
+    # 반복 설정은 수정 불가 (새로 만들어야 함)
 
 
 class RaidSchedule(RaidScheduleBase):
@@ -54,6 +67,11 @@ class RaidSchedule(RaidScheduleBase):
     id: int
     raid_group_id: int
     created_by_id: int
+    recurrence_type: RecurrenceType
+    recurrence_end_date: Optional[date] = None
+    recurrence_count: Optional[int] = None
+    recurrence_days: Optional[str] = None
+    parent_schedule_id: Optional[int] = None
     is_confirmed: bool
     is_completed: bool
     is_cancelled: bool
@@ -68,9 +86,16 @@ class RaidSchedule(RaidScheduleBase):
     attendances: Optional[List["RaidAttendance"]] = []
     confirmed_count: Optional[int] = 0
     declined_count: Optional[int] = 0
+    is_recurring: Optional[bool] = None  # 반복 일정 여부
     
     model_config = ConfigDict(from_attributes=True)
 
+# 반복 일정 삭제 옵션
+class RecurringScheduleDeleteOption(str, Enum):
+    """반복 일정 삭제 옵션"""
+    THIS_ONLY = "this_only"  # 이 일정만
+    THIS_AND_FUTURE = "this_and_future"  # 이 일정과 이후 모든 일정
+    ALL = "all"  # 모든 반복 일정
 
 # RaidAttendance 스키마
 class RaidAttendanceBase(BaseModel):

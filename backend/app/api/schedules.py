@@ -13,6 +13,7 @@ from app.schemas.raid_schedule import (
     RaidScheduleCreate,
     RaidScheduleUpdate,
     RaidAttendance as RaidAttendanceSchema,
+    RecurrenceType,
     RaidAttendanceCreate,
     RaidAttendanceUpdate,
     ScheduleDashboard,
@@ -135,8 +136,9 @@ def create_raid_schedule(
 ):
     """
     새 레이드 일정 생성 (공대장 또는 일정 권한자)
+    반복 설정이 있으면 여러 일정을 생성합니다.
     """
-    # 권한 확인
+    # 권한 확인 (기존 코드 유지)
     member = db.query(RaidMember).filter(
         and_(
             RaidMember.raid_group_id == group_id,
@@ -159,11 +161,15 @@ def create_raid_schedule(
                 detail="Not authorized to manage schedules"
             )
     
-    # 일정 생성
+    # 기본 일정 생성
     schedule = RaidSchedule(
-        **schedule_in.model_dump(),
+        **schedule_in.model_dump(exclude={'recurrence_type', 'recurrence_end_date', 'recurrence_count', 'recurrence_days'}),
         raid_group_id=group_id,
-        created_by_id=current_user.id
+        created_by_id=current_user.id,
+        recurrence_type=schedule_in.recurrence_type,
+        recurrence_end_date=schedule_in.recurrence_end_date,
+        recurrence_count=schedule_in.recurrence_count,
+        recurrence_days=schedule_in.recurrence_days
     )
     db.add(schedule)
     db.commit()
@@ -181,11 +187,29 @@ def create_raid_schedule(
         )
         db.add(attendance)
     
+    # 반복 일정 생성
+    if schedule_in.recurrence_type != RecurrenceType.NONE:
+        recurring_schedules = create_recurring_schedules(db, schedule, schedule_in)
+        
+        for recurring_schedule in recurring_schedules:
+            db.add(recurring_schedule)
+            db.flush()  # ID 생성을 위해
+            
+            # 각 반복 일정에 대한 참석 레코드 생성
+            for member in members:
+                attendance = RaidAttendance(
+                    schedule_id=recurring_schedule.id,
+                    user_id=member.user_id,
+                    status=AttendanceStatus.PENDING
+                )
+                db.add(attendance)
+    
     db.commit()
     db.refresh(schedule)
     
     schedule.confirmed_count = 0
     schedule.declined_count = 0
+    schedule.is_recurring = schedule_in.recurrence_type != RecurrenceType.NONE
     
     return schedule
 
@@ -569,3 +593,99 @@ def get_attendance_statistics(
             })
     
     return {"statistics": result}
+
+def create_recurring_schedules(
+    db: Session,
+    base_schedule: RaidSchedule,
+    rule: RaidScheduleCreate
+) -> List[RaidSchedule]:
+    """
+    반복 규칙에 따라 여러 일정 생성
+    """
+    schedules = []
+    current_date = base_schedule.scheduled_date
+    end_date = rule.recurrence_end_date
+    count = rule.recurrence_count or 52  # 기본값 52주
+    created_count = 0
+    
+    # 선택된 요일 파싱
+    selected_days = []
+    if rule.recurrence_days and rule.recurrence_type == RecurrenceType.WEEKLY:
+        selected_days = [int(d) for d in rule.recurrence_days.split(',')]
+    
+    while created_count < count:
+        # 종료일 체크
+        if end_date and current_date > end_date:
+            break
+        
+        # 반복 유형에 따른 처리
+        if rule.recurrence_type == RecurrenceType.DAILY:
+            # 매일
+            current_date += timedelta(days=1)
+        elif rule.recurrence_type == RecurrenceType.WEEKLY:
+            # 매주
+            if selected_days:
+                # 선택된 요일만
+                found = False
+                for _ in range(7):
+                    current_date += timedelta(days=1)
+                    if current_date.weekday() in selected_days:
+                        found = True
+                        break
+                if not found:
+                    continue
+            else:
+                # 7일 후
+                current_date += timedelta(days=7)
+        elif rule.recurrence_type == RecurrenceType.BIWEEKLY:
+            # 격주
+            current_date += timedelta(days=14)
+        elif rule.recurrence_type == RecurrenceType.MONTHLY:
+            # 매월 같은 날
+            # 월의 마지막 날 처리
+            next_month = current_date.month + 1
+            next_year = current_date.year
+            if next_month > 12:
+                next_month = 1
+                next_year += 1
+            
+            try:
+                current_date = current_date.replace(month=next_month, year=next_year)
+            except ValueError:
+                # 예: 1월 31일 -> 2월 31일이 없는 경우
+                # 해당 월의 마지막 날로 설정
+                import calendar
+                last_day = calendar.monthrange(next_year, next_month)[1]
+                current_date = current_date.replace(
+                    month=next_month, 
+                    year=next_year, 
+                    day=last_day
+                )
+        
+        # 일정 생성
+        new_schedule = RaidSchedule(
+            raid_group_id=base_schedule.raid_group_id,
+            created_by_id=base_schedule.created_by_id,
+            title=base_schedule.title,
+            description=base_schedule.description,
+            scheduled_date=current_date,
+            start_time=base_schedule.start_time,
+            end_time=base_schedule.end_time,
+            target_floors=base_schedule.target_floors,
+            minimum_members=base_schedule.minimum_members,
+            notes=base_schedule.notes,
+            recurrence_type=base_schedule.recurrence_type,
+            recurrence_end_date=base_schedule.recurrence_end_date,
+            recurrence_count=base_schedule.recurrence_count,
+            recurrence_days=base_schedule.recurrence_days,
+            parent_schedule_id=base_schedule.id
+        )
+        
+        schedules.append(new_schedule)
+        created_count += 1
+        
+        # 너무 많은 일정 생성 방지
+        if created_count >= 100:
+            break
+    
+    return schedules
